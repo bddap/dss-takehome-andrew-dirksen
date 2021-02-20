@@ -88,20 +88,24 @@ mod cache_dir {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::api_types::Container;
+    use crate::api_types::Set;
 
     #[test]
     fn get_all() {
         let home = home().unwrap();
-        for container in home
+        for set in home
             .data
             .as_sc()
             .containers
             .iter()
-            .map(Container::as_shelf_container)
+            .map(|c| &c.as_shelf_container().set)
+            .filter_map(|set| match set {
+                Set::CuratedSet { items, .. } => Some(items),
+                Set::SetRef { .. } => None,
+            })
+            .flatten()
         {
-            dbg!(container);
+            dbg!(&set.image());
         }
-        panic!();
     }
 }

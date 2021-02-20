@@ -5,6 +5,7 @@
 // - vet external crates more thoroughly
 
 use serde_json::Value;
+use std::collections::BTreeMap;
 use uuid::Uuid;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -143,6 +144,7 @@ pub enum TextInner {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct TextSet {
     default: TextDefault,
 }
@@ -223,10 +225,47 @@ pub enum Item {
     },
 }
 
+impl Item {
+    pub fn image(&self) -> &Image {
+        match &self {
+            Self::DmcSeries { image, .. }
+            | Self::DmcVideo { image, .. }
+            | Self::StandardCollection { image, .. } => image,
+        }
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
 pub struct Image {
-    // TODO
+    hero_collection: ImageAspectMap,
+    tile: ImageAspectMap,
+    background: Option<ImageAspectMap>,
+    background_details: Option<ImageAspectMap>,
+    hero_tile: Option<ImageAspectMap>,
+    title_treatment: Option<ImageAspectMap>,
+    title_treatment_layer: Option<ImageAspectMap>,
+    logo: Option<ImageAspectMap>,
+    logo_layer: Option<ImageAspectMap>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct ImageAspectMap(BTreeMap<String, ImageSized>);
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub enum ImageSized {
+    Program { default: ImageConcrete },
+    Series { default: ImageConcrete },
+    Default { default: ImageConcrete },
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ImageConcrete {
+    master_height: u32,
+    master_id: String,
+    master_width: u32,
+    url: String,
 }
 
 /// this was always null in sample data
