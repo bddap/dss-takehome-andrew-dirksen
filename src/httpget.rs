@@ -88,9 +88,20 @@ mod cache_dir {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::api_types::Container;
 
     #[test]
     fn get_all() {
         let home = home().unwrap();
+        for container in home
+            .data
+            .as_sc()
+            .containers
+            .iter()
+            .map(Container::as_shelf_container)
+        {
+            dbg!(container);
+        }
+        panic!();
     }
 }

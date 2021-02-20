@@ -2,5 +2,6 @@ mod api_types;
 mod httpget;
 
 fn main() {
-    println!("Hello, world!");
+    let _home = httpget::home();
+    let _home = httpget::get_set("");
 }
