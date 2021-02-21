@@ -10,3 +10,5 @@ serde_json = "1"
 serde = { version = "1", features = ["derive"] }
 sanitize-filename = "0.3.0"
 uuid = { version = "0.8", features = ["serde", "v4"] }
+miniquad = "0.2.55"
+jpeg-decoder = "0.1.22"

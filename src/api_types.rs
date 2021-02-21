@@ -4,6 +4,7 @@
 // - I don't precicely know the data model of this api so this client will break easily
 // - vet external crates more thoroughly
 
+use core::convert::TryInto;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use uuid::Uuid;
@@ -237,19 +238,59 @@ impl Item {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Image {
-    hero_collection: ImageAspectMap,
-    tile: ImageAspectMap,
-    background: Option<ImageAspectMap>,
-    background_details: Option<ImageAspectMap>,
-    hero_tile: Option<ImageAspectMap>,
-    title_treatment: Option<ImageAspectMap>,
-    title_treatment_layer: Option<ImageAspectMap>,
-    logo: Option<ImageAspectMap>,
-    logo_layer: Option<ImageAspectMap>,
+    pub hero_collection: ImageAspectMap,
+    pub tile: ImageAspectMap,
+    pub background: Option<ImageAspectMap>,
+    pub background_details: Option<ImageAspectMap>,
+    pub hero_tile: Option<ImageAspectMap>,
+    pub title_treatment: Option<ImageAspectMap>,
+    pub title_treatment_layer: Option<ImageAspectMap>,
+    pub logo: Option<ImageAspectMap>,
+    pub logo_layer: Option<ImageAspectMap>,
+}
+
+impl Image {
+    fn all_concrete(&self) -> impl Iterator<Item = &ImageConcrete> {
+        self.hero_collection
+            .all_concrete()
+            .chain(self.tile.all_concrete())
+            .chain(
+                self.background
+                    .iter()
+                    .chain(self.background_details.iter())
+                    .chain(self.hero_tile.iter())
+                    .chain(self.title_treatment.iter())
+                    .chain(self.title_treatment_layer.iter())
+                    .chain(self.background.iter())
+                    .chain(self.background_details.iter())
+                    .chain(self.hero_tile.iter())
+                    .chain(self.title_treatment.iter())
+                    .chain(self.title_treatment_layer.iter())
+                    .chain(self.logo.iter())
+                    .chain(self.logo_layer.iter())
+                    .flat_map(ImageAspectMap::all_concrete),
+            )
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct ImageAspectMap(BTreeMap<String, ImageSized>);
+
+impl ImageAspectMap {
+    // find the ImageConcrete with the aspect ratio closests to target_aspect
+    pub fn get_closest(&self, target_aspect: f64) -> Option<&ImageConcrete> {
+        assert!(target_aspect > 0.0);
+        assert!(target_aspect < 1000.0);
+        self.0.values().map(ImageSized::concrete).min_by_key(|a| {
+            let err = (target_aspect - a.aspect_ratio().unwrap_or(0.0)).abs();
+            (err * 1000.0) as u64
+        })
+    }
+
+    fn all_concrete(&self) -> impl Iterator<Item = &ImageConcrete> {
+        self.0.values().map(ImageSized::concrete)
+    }
+}
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -259,13 +300,32 @@ pub enum ImageSized {
     Default { default: ImageConcrete },
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+impl ImageSized {
+    pub fn concrete(&self) -> &ImageConcrete {
+        match &self {
+            ImageSized::Program { default }
+            | ImageSized::Series { default }
+            | ImageSized::Default { default } => default,
+        }
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImageConcrete {
-    master_height: u32,
-    master_id: String,
-    master_width: u32,
-    url: String,
+    pub master_height: u32,
+    pub master_id: String,
+    pub master_width: u32,
+    pub url: String,
+}
+
+impl ImageConcrete {
+    fn aspect_ratio(&self) -> Option<f64> {
+        if self.master_height == 0 {
+            return None;
+        }
+        Some(self.master_width as f64 / self.master_height as f64)
+    }
 }
 
 /// this was always null in sample data
@@ -274,3 +334,89 @@ pub struct CallToAction(Value);
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Language(String);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn aspect() {
+        assert_eq!(
+            ImageConcrete {
+                master_height: 1,
+                master_id: "".into(),
+                master_width: 50,
+                url: "".into(),
+            }
+            .aspect_ratio(),
+            Some(50.0)
+        );
+        assert_eq!(
+            ImageConcrete {
+                master_height: 0,
+                master_id: "".into(),
+                master_width: 50,
+                url: "".into(),
+            }
+            .aspect_ratio(),
+            None
+        );
+    }
+
+    #[test]
+    fn get_closest() {
+        let imam = ImageAspectMap(
+            [
+                ImageConcrete {
+                    master_height: 1,
+                    master_id: "".into(),
+                    master_width: 55,
+                    url: "".into(),
+                },
+                ImageConcrete {
+                    master_height: 1,
+                    master_id: "".into(),
+                    master_width: 50,
+                    url: "".into(),
+                },
+                ImageConcrete {
+                    master_height: 1,
+                    master_id: "".into(),
+                    master_width: 45,
+                    url: "".into(),
+                },
+            ]
+            .iter()
+            .cloned()
+            .map(|default| (format!("{:?}", &default), ImageSized::Default { default }))
+            .collect(),
+        );
+        assert_eq!(
+            imam.get_closest(50.0).unwrap(),
+            &ImageConcrete {
+                master_height: 1,
+                master_id: "".into(),
+                master_width: 50,
+                url: "".into(),
+            },
+        );
+        assert_eq!(
+            imam.get_closest(30.0).unwrap(),
+            &ImageConcrete {
+                master_height: 1,
+                master_id: "".into(),
+                master_width: 45,
+                url: "".into(),
+            },
+        );
+        assert_eq!(
+            imam.get_closest(60.0).unwrap(),
+            &ImageConcrete {
+                master_height: 1,
+                master_id: "".into(),
+                master_width: 55,
+                url: "".into(),
+            },
+        );
+    }
+}

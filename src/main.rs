@@ -5,6 +5,5 @@ mod httpget;
 mod uistate;
 
 fn main() {
-    let _home = httpget::home();
-    let _home = httpget::get_set("");
+    let _uistate = crate::uistate::UiState::from_interwebs().unwrap();
 }
