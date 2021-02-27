@@ -16,12 +16,12 @@ use serde::de::DeserializeOwned;
 use std::env::var;
 use uuid::Uuid;
 
-pub fn home() -> Result<api_types::Home, String> {
+pub fn home() -> Result<api_types::Wrapped<api_types::Home>, String> {
     get_deser("home.json")
 }
 
-pub fn get_set(ref_id: &Uuid) -> Result<serde_json::Value, String> {
-    get_json(&format!("sets/{}.json", ref_id))
+pub fn get_set(ref_id: &Uuid) -> Result<api_types::Wrapped<api_types::OuterSet>, String> {
+    get_deser(&format!("sets/{}.json", ref_id))
 }
 
 pub fn get_jpg(url: &str) -> Result<Img, String> {
@@ -67,13 +67,7 @@ fn get_nocache(url: &str) -> Result<Vec<u8>, String> {
 }
 
 fn get_url(url: &str) -> Result<Vec<u8>, String> {
-    let cached = cache_dir::get(&url).map_err(dbug)?;
-    if let Some(bod) = cached {
-        return Ok(bod);
-    }
-    let ret = get_nocache(&url)?;
-    cache_dir::set(&url, &ret).map_err(dbug)?;
-    Ok(ret)
+    cache_dir::get_or_else(url, || get_nocache(url))
 }
 
 fn get(path: &str) -> Result<Vec<u8>, String> {
@@ -85,62 +79,68 @@ fn get(path: &str) -> Result<Vec<u8>, String> {
     get_url(&url)
 }
 
-fn get_json(path: &str) -> Result<serde_json::Value, String> {
-    get(path).and_then(|bs| serde_json::from_slice(&bs).map_err(dbug))
-}
-
 fn get_deser<T: DeserializeOwned>(path: &str) -> Result<T, String> {
-    get(path).and_then(|bs| serde_json::from_slice(&bs).map_err(dbug))
+    let bs = get(path)?;
+    let deser_result = serde_json::from_slice(&bs);
+    deser_result.map_err(dbug)
 }
 
 fn dbug(t: impl Debug) -> String {
     format!("{:?}", t)
 }
 
+/// this is just to speed development by caching network results
 mod cache_dir {
-    use sanitize_filename::sanitize;
-    use std::fs;
-    use std::io;
-    use std::io::Read;
-    use std::io::Write;
+    use lazy_static::lazy_static;
+    use sled::Db;
 
-    pub fn get(key: &str) -> io::Result<Option<Vec<u8>>> {
-        let mut ret = Vec::new();
-        let mut file = match fs::File::open(&format!("cache/{}", sanitize(key))) {
-            Ok(f) => f,
-            Err(_) => return Ok(None),
-        };
-        file.read_to_end(&mut ret)?;
-        Ok(Some(ret))
+    lazy_static! {
+        static ref SLED: Db = sled::open("cache/DB").unwrap();
     }
 
-    pub fn set(key: &str, val: &[u8]) -> io::Result<()> {
-        let _ = fs::create_dir("cache");
-        fs::File::create(&format!("cache/{}", sanitize(key)))?.write_all(&val)
+    pub fn get(url: &str) -> Option<Result<Vec<u8>, String>> {
+        let val = SLED.get(url).unwrap()?;
+        Some(bincode::deserialize(&val).unwrap())
+    }
+
+    pub fn set(url: &str, val: &Result<Vec<u8>, String>) {
+        let val = bincode::serialize(val).unwrap();
+        SLED.insert(url, val).unwrap();
+        SLED.flush().unwrap();
+    }
+
+    pub fn get_or_else(
+        url: &str,
+        f: impl Fn() -> Result<Vec<u8>, String>,
+    ) -> Result<Vec<u8>, String> {
+        if let Some(ret) = get(url) {
+            ret
+        } else {
+            let ret = f();
+            set(url, &ret);
+            ret
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::api_types::Set;
+    // use crate::api_types::Set;
 
     #[test]
     fn get_all() {
         let home = home().unwrap();
-        for set in home
+        for _set in home
             .data
             .as_sc()
             .containers
             .iter()
             .map(|c| &c.as_shelf_container().set)
-            .filter_map(|set| match set {
-                Set::CuratedSet { items, .. } => Some(items),
-                Set::SetRef { .. } => None,
-            })
-            .flatten()
+            .filter_map(|_set| -> Option<()> { unimplemented!() })
+        // .flatten()
         {
-            dbg!(&set.image());
+            // dbg!(&set.image());
         }
     }
 }

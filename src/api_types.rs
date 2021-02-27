@@ -3,23 +3,23 @@
 //   - even better than that would be for the creator of the api endpiont to create the client
 // - I don't precicely know the data model of this api so this client will break easily
 // - vet external crates more thoroughly
+// - come up with a nice abstraction for "things that are either T, or a ref_id of T"
 
-use core::convert::TryInto;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct Home {
-    pub data: Data,
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct Wrapped<T> {
+    pub data: T,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub enum Data {
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub enum Home {
     StandardCollection(StandardCollection),
 }
 
-impl Data {
+impl Home {
     pub fn as_sc(&self) -> &StandardCollection {
         match &self {
             Self::StandardCollection(sc) => sc,
@@ -27,7 +27,26 @@ impl Data {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub enum OuterSet {
+    CuratedSet(Set),
+    TrendingSet(Set),
+    SetRef(Set),
+    PersonalizedCuratedSet(Set),
+}
+
+impl OuterSet {
+    pub fn inner(&self) -> &Set {
+        match &self {
+            Self::CuratedSet(set)
+            | Self::TrendingSet(set)
+            | Self::SetRef(set)
+            | Self::PersonalizedCuratedSet(set) => set,
+        }
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct StandardCollection {
     pub call_to_action: CallToAction,
@@ -41,10 +60,10 @@ pub struct StandardCollection {
     // I'm going to ignore the internal tag.
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct StandardCollectionImage {}
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CollectionGroup {
     pub collection_group_id: Uuid,
@@ -53,13 +72,13 @@ pub struct CollectionGroup {
     pub slugs: Vec<Slug>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Slug {
     pub language: String,
     pub value: String,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum Container {
     ShelfContainer(ShelfContainer),
@@ -73,14 +92,14 @@ impl Container {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ShelfContainer {
     pub set: Set,
     pub style: Style,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub enum Style {
     #[serde(rename(serialize = "editorial", deserialize = "editorial"))]
     Editorial,
@@ -89,34 +108,84 @@ pub enum Style {
     PersonalizedCuratedSet,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum Set {
-    #[serde(rename_all = "camelCase")]
-    CuratedSet {
-        content_class: String,
-        items: Vec<Item>,
-        meta: Meta,
-        set_id: Uuid,
-        text: Text,
-    },
-    #[serde(rename_all = "camelCase")]
-    SetRef {
-        content_class: String,
-        ref_id: Uuid,
-        ref_id_type: RefIdType,
-        ref_type: RefType,
-        text: Text,
-    },
+    CuratedSet(CuratedSet),
+    TrendingSet(TrendingSet),
+    SetRef(SetRef),
+    PersonalizedCuratedSet(PersonalizedCuratedSet),
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PersonalizedCuratedSet {
+    content_class: String,
+    pub items: Vec<Item>,
+    meta: Meta,
+    set_id: Uuid,
+    pub text: Text,
+    experiment_token: Value,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CuratedSet {
+    content_class: String,
+    pub items: Vec<Item>,
+    meta: Meta,
+    set_id: Uuid,
+    pub text: Text,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TrendingSet {
+    content_class: String,
+    items: Vec<Item>,
+    meta: Meta,
+    set_id: Uuid,
+    text: Text,
+    experiment_token: Value,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SetRef {
+    content_class: String,
+    pub ref_id: Uuid,
+    ref_id_type: RefIdType,
+    ref_type: RefType,
+    text: Text,
+}
+
+impl Set {
+    pub fn text(&self) -> &Text {
+        match &self {
+            Self::CuratedSet(CuratedSet { text, .. })
+            | Self::TrendingSet(TrendingSet { text, .. })
+            | Self::SetRef(SetRef { text, .. })
+            | Self::PersonalizedCuratedSet(PersonalizedCuratedSet { text, .. }) => text,
+        }
+    }
+
+    pub fn items(&self) -> Option<&[Item]> {
+        match &self {
+            Self::CuratedSet(CuratedSet { items, .. })
+            | Self::TrendingSet(TrendingSet { items, .. })
+            | Self::PersonalizedCuratedSet(PersonalizedCuratedSet { items, .. }) => Some(items),
+            Self::SetRef { .. } => None,
+        }
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum RefIdType {
     SetId,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub enum RefType {
     BecauseYouSet,
     TrendingSet,
@@ -124,18 +193,18 @@ pub enum RefType {
     PersonalizedCuratedSet,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Text {
     title: TextTitle,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct TextTitle {
     full: TextInner,
     slug: Option<TextInner>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum TextInner {
     Series(TextSet),
@@ -144,13 +213,13 @@ pub enum TextInner {
     Set(TextSet),
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct TextSet {
     default: TextDefault,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TextDefault {
     content: Value,
@@ -159,24 +228,24 @@ pub struct TextDefault {
 }
 
 // maybe these fields are floats? maybe sined? deser may fail.
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Meta {
     hits: u64,
     offset: i64,
     page_size: u64,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum Item {
     #[serde(rename_all = "camelCase")]
     DmcSeries {
-        call_to_action: CallToAction,
+        call_to_action: Option<CallToAction>,
         content_id: Uuid,
         current_availability: Value,
         encoded_series_id: Value,
         image: Image,
-        media_rights: Value,
+        media_rights: Option<Value>,
         ratings: Value,
         releases: Value,
         series_id: Uuid,
@@ -187,7 +256,7 @@ pub enum Item {
     },
     #[serde(rename_all = "camelCase")]
     DmcVideo {
-        call_to_action: CallToAction,
+        call_to_action: Option<CallToAction>,
         content_id: Uuid,
         content_type: Value,
         current_availability: Value,
@@ -200,7 +269,7 @@ pub enum Item {
         image: Image,
         internal_title: Value,
         media_metadata: Value,
-        media_rights: Value,
+        media_rights: Option<Value>,
         original_language: Value,
         program_id: Uuid,
         program_type: Value,
@@ -210,14 +279,14 @@ pub enum Item {
         season_sequence_number: Value,
         series_id: Value,
         tags: Value,
-        target_language: Value,
+        target_language: Option<Value>,
         text: Text,
         video_art: Value,
         video_id: Value,
     },
     #[serde(rename_all = "camelCase")]
     StandardCollection {
-        call_to_action: CallToAction,
+        call_to_action: Option<CallToAction>,
         collection_group: Value,
         collection_id: Uuid,
         image: Image,
@@ -236,7 +305,7 @@ impl Item {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Image {
     pub hero_collection: ImageAspectMap,
     pub tile: ImageAspectMap,
@@ -273,7 +342,7 @@ impl Image {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct ImageAspectMap(BTreeMap<String, ImageSized>);
 
 impl ImageAspectMap {
@@ -281,18 +350,18 @@ impl ImageAspectMap {
     pub fn get_closest(&self, target_aspect: f64) -> Option<&ImageConcrete> {
         assert!(target_aspect > 0.0);
         assert!(target_aspect < 1000.0);
-        self.0.values().map(ImageSized::concrete).min_by_key(|a| {
+        self.all_concrete().min_by_key(|a| {
             let err = (target_aspect - a.aspect_ratio().unwrap_or(0.0)).abs();
             (err * 1000.0) as u64
         })
     }
 
-    fn all_concrete(&self) -> impl Iterator<Item = &ImageConcrete> {
+    pub fn all_concrete(&self) -> impl Iterator<Item = &ImageConcrete> {
         self.0.values().map(ImageSized::concrete)
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub enum ImageSized {
     Program { default: ImageConcrete },
@@ -329,10 +398,10 @@ impl ImageConcrete {
 }
 
 /// this was always null in sample data
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct CallToAction(Value);
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Language(String);
 
 #[cfg(test)]
