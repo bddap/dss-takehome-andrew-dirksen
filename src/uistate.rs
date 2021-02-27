@@ -2,6 +2,9 @@
 // - Replace stringly typed error
 
 use crate::api_types::{Item, Set};
+use crate::httpget::get_url;
+use crate::image_drawer::{Drawer, Image, Pos, Scale};
+use miniquad::Context;
 
 const IMAGE_TARGET_ASPECT: f64 = 1.8;
 
@@ -11,27 +14,29 @@ pub struct UiState {
 }
 
 struct Pick {
-    rgba: Vec<[u8; 4]>,
-    width: u16,
-    height: u16,
+    img: Image,
 }
 
 impl Pick {
-    fn blank() -> Self {
+    fn blank(ctx: &mut Context) -> Self {
         Self {
-            rgba: vec![[0, 0, 0, 0]],
-            width: 1,
-            height: 1,
+            img: Image::from_rgba8(ctx, 1, 1, &[0, 0, 0, 0]),
         }
     }
 }
 
 impl UiState {
-    pub fn draw(&self, _aspect: f64) {
-        for (i, _pick) in self.rows.iter().flat_map(|r| &r.1).enumerate() {
-            let d = i as f64 / 2.2342;
-            let _center = (d.sin(), d.cos());
+    pub fn draw(&self, ctx: &mut Context, imgd: &Drawer) {
+        let t = miniquad::date::now();
+        let amp = (t / 100.0).sin();
+        for (i, pick) in self.rows.iter().flat_map(|r| &r.1).enumerate() {
+            let d = i as f64 / 20.2342 + t;
+            let center = Pos {
+                x: (d.sin() / 2.0) as f32,
+                y: ((d * 0.9).cos() / 2.0) as f32,
+            };
             // draw pick at center
+            imgd.draw_single(ctx, &pick.img, center, Scale { big: true });
         }
     }
 
@@ -40,14 +45,20 @@ impl UiState {
         self.rows.get(i)?.1.get(j)
     }
 
-    pub fn from_interwebs() -> Result<Self, String> {
+    fn get_selected(&self) -> Option<&Pick> {
+        self.get(self.selected)
+    }
+
+    pub fn from_interwebs(ctx: &mut Context) -> Result<Self, String> {
         use crate::api_types::*;
         let home: Home = crate::httpget::home()?.data;
         let sc: &StandardCollection = home.as_sc();
         let containers: &[Container] = &sc.containers;
         let containers = containers.iter().map(Container::as_shelf_container);
         let sets = containers.map(|c| &c.set);
-        let rows: Vec<(String, Vec<Pick>)> = sets.map(to_row).collect::<Result<_, String>>()?;
+        let rows: Vec<(String, Vec<Pick>)> = sets
+            .map(|set| to_row(ctx, set))
+            .collect::<Result<_, String>>()?;
         Ok(Self {
             rows,
             selected: (0, 0),
@@ -55,14 +66,18 @@ impl UiState {
     }
 }
 
-fn to_row(set: &crate::api_types::Set) -> Result<(String, Vec<Pick>), String> {
+fn to_row(ctx: &mut Context, set: &crate::api_types::Set) -> Result<(String, Vec<Pick>), String> {
     let title = format!("{:?}", set.text());
-    let picks = picks(&deref(set)?.items().unwrap())?;
+    let picks = picks(ctx, &deref(set)?.items().unwrap())?;
     Ok((title, picks))
 }
 
-fn picks(items: &[Item]) -> Result<Vec<Pick>, String> {
-    items.iter().map(Item::image).map(to_pick).collect()
+fn picks(ctx: &mut Context, items: &[Item]) -> Result<Vec<Pick>, String> {
+    items
+        .iter()
+        .map(Item::image)
+        .map(|img| to_pick(ctx, img))
+        .collect()
 }
 
 /// to api request for set if needed.
@@ -80,19 +95,19 @@ fn deref(set: &Set) -> Result<Set, String> {
     Ok(ret)
 }
 
-fn to_pick(image: &crate::api_types::Image) -> Result<Pick, String> {
-    use crate::api_types::*;
-    use crate::httpget::{get_jpg, Img};
+fn to_pick(ctx: &mut Context, image: &crate::api_types::Image) -> Result<Pick, String> {
+    use crate::api_types::ImageAspectMap;
+    use crate::api_types::ImageConcrete;
     let hc: &ImageAspectMap = &image.tile;
     let con: &ImageConcrete = hc
         .get_closest(IMAGE_TARGET_ASPECT)
         .ok_or_else(|| "no image".to_string())?;
-    let p = get_jpg(&con.url)
-        .map(|Img { width, height, rgb }| Pick {
-            width,
-            height,
-            rgba: rgb.windows(3).map(|wn| [wn[0], wn[1], wn[2], 0]).collect(),
-        })
-        .unwrap_or_else(|_| Pick::blank());
-    Ok(p)
+
+    let req = get_url(&con.url);
+    let bs: &[u8] = match &req {
+        Ok(bs) => bs,
+        Err(_) => return Ok(Pick::blank(ctx)),
+    };
+    let img = Image::decode_jpg(ctx, bs)?;
+    Ok(Pick { img })
 }

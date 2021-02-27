@@ -66,7 +66,7 @@ fn get_nocache(url: &str) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
-fn get_url(url: &str) -> Result<Vec<u8>, String> {
+pub fn get_url(url: &str) -> Result<Vec<u8>, String> {
     cache_dir::get_or_else(url, || get_nocache(url))
 }
 
