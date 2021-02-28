@@ -33,7 +33,9 @@ impl UiState {
         let selected = self.selected;
         for (i, (_name, row)) in self.rows.iter_mut().enumerate() {
             for (j, pick) in row.iter_mut().enumerate() {
-                pick.pos = Self::target_pos(selected, t, (i, j));
+                let target = Self::target_pos(selected, t, (i, j));
+                let path = target - pick.pos.clone();
+                pick.pos = pick.pos.clone() + path * 0.2;
             }
         }
     }
@@ -86,6 +88,23 @@ impl UiState {
             selected: (0, 0),
         })
     }
+
+    pub fn select_relative(&mut self, index: (i8, i8)) {
+        self.selected.0 = shift(self.selected.0, index.0 as isize, self.rows.len());
+        self.selected.1 = shift(
+            self.selected.1,
+            index.1 as isize,
+            self.rows[self.selected.0].1.len(),
+        );
+    }
+}
+
+/// add shift to current, mod by bound
+fn shift(current: usize, shift: isize, bound: usize) -> usize {
+    let bound = bound as isize;
+    let ret = (current as isize + shift + bound) % bound;
+    assert!(ret >= 0);
+    ret as usize
 }
 
 fn to_row(ctx: &mut Context, set: &crate::api_types::Set) -> Result<(String, Vec<Pick>), String> {

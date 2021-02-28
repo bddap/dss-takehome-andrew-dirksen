@@ -142,6 +142,34 @@ impl core::ops::Sub<Self> for Pos {
     }
 }
 
+impl Pos {
+    pub fn mag(&self) -> f32 {
+        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+    }
+}
+
+impl core::ops::Mul<f32> for Pos {
+    type Output = Self;
+    fn mul(self, other: f32) -> Self {
+        Self {
+            x: self.x * other,
+            y: self.y * other,
+            z: self.z * other,
+        }
+    }
+}
+
+impl core::ops::Add<Self> for Pos {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
+    }
+}
+
 #[repr(C)]
 struct Vec2 {
     x: f32,

@@ -28,8 +28,13 @@ impl EventHandler for Stage {
     }
 
     fn key_down_event(&mut self, ctx: &mut Context, kc: KeyCode, _mods: KeyMods, _repeat: bool) {
-        if KeyCode::Q == kc {
-            ctx.request_quit();
+        match kc {
+            KeyCode::Q => ctx.request_quit(),
+            KeyCode::Left => self.uistate.select_relative((0, -1)),
+            KeyCode::Right => self.uistate.select_relative((0, 1)),
+            KeyCode::Up => self.uistate.select_relative((-1, 0)),
+            KeyCode::Down => self.uistate.select_relative((1, 0)), 
+            _ => {}
         }
     }
 }
