@@ -193,7 +193,7 @@ mod shader {
     varying lowp vec2 texcoord;
 
     void main() {
-        gl_Position = vec4(vec3(pos, 0) + offset, 1);
+        gl_Position = vec4(vec3(pos * -offset.z, 0) + offset, 1);
         texcoord = uv;
     }"#;
 

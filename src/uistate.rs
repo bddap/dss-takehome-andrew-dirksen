@@ -75,18 +75,18 @@ impl UiState {
                 rowlen as f64,
                 0.0,
                 core::f64::consts::TAU,
-            ) + t / 100.0;
+            ) + t / 50.0;
             Pos {
                 x: angle.cos() as f32 * 0.5 + 0.2,
                 y: angle.sin() as f32 * 0.5,
-                z: reord as f32 * -0.0001,
+                z: map(reord as f64, 0.0, rowlen as f64, -0.5, -0.7) as f32,
             }
         } else {
             let ceord = (selected.0 + numrows + numrows / 4 - index.0) % numrows;
             Pos {
                 x: -0.8 - index.1 as f32 / 4.0,
                 y: ceord as f32 / 3.0 - 1.0,
-                z: index.1 as f32 * 0.0001 - 1.0,
+                z: map(index.1 as f64, 0.0, rowlen as f64, -0.7, -0.9) as f32,
             }
         }
     }
