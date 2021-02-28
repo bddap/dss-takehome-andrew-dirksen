@@ -58,8 +58,10 @@ impl Drawer {
                 index_buffer: self.index_buffer,
                 images: vec![img.tx],
             });
+            let z = 0.0;
+            let w = if scale.big { 1.1 } else { 1.0 };
             ctx.apply_uniforms(&shader::Uniforms {
-                offset: (pos.x, pos.y),
+                offset: (pos.x, pos.y, z, w),
             });
             ctx.draw(0, 6, 1);
         }
@@ -141,12 +143,12 @@ mod shader {
     attribute vec2 pos;
     attribute vec2 uv;
 
-    uniform vec2 offset;
+    uniform vec4 offset;
 
     varying lowp vec2 texcoord;
 
     void main() {
-        gl_Position = vec4(pos + offset, 0, 1);
+        gl_Position = vec4(pos, 0, 0) + offset;
         texcoord = uv;
     }"#;
 
@@ -162,13 +164,13 @@ mod shader {
     pub const META: ShaderMeta = ShaderMeta {
         images: &["tex"],
         uniforms: UniformBlockLayout {
-            uniforms: &[("offset", UniformType::Float2)],
+            uniforms: &[("offset", UniformType::Float4)],
         },
     };
 
     #[repr(C)]
     pub struct Uniforms {
-        pub offset: (f32, f32),
+        pub offset: (f32, f32, f32, f32),
     }
 }
 

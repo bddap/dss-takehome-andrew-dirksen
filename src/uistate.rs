@@ -35,10 +35,10 @@ impl UiState {
                 y: ((d * 0.9).cos() / 2.0) as f32,
             };
             // draw pick at center
-            imgd.draw_single(ctx, &pick.img, center, Scale { big: true });
+            imgd.draw_single(ctx, &pick.img, center, Scale { big: false });
         }
         if let Some(pick) = self.get_selected() {
-            imgd.draw_single(ctx, &pick.img, Pos { x: 0.0, y: 0.0 }, Scale { big: false });
+            imgd.draw_single(ctx, &pick.img, Pos { x: 0.0, y: 0.0 }, Scale { big: true });
         }
     }
 
