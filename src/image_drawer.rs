@@ -3,8 +3,10 @@ use miniquad::Bindings;
 use miniquad::Buffer;
 use miniquad::BufferLayout;
 use miniquad::BufferType;
+use miniquad::Comparison;
 use miniquad::Context;
 use miniquad::Pipeline;
+use miniquad::PipelineParams;
 use miniquad::Shader;
 use miniquad::Texture;
 use miniquad::VertexAttribute;
@@ -33,7 +35,7 @@ impl Drawer {
 
         let shader = Shader::new(ctx, shader::VERTEX, shader::FRAGMENT, shader::META);
 
-        let pipeline = Pipeline::new(
+        let pipeline = Pipeline::with_params(
             ctx,
             &[BufferLayout::default()],
             &[
@@ -41,6 +43,11 @@ impl Drawer {
                 VertexAttribute::new("uv", VertexFormat::Float2),
             ],
             shader,
+            PipelineParams {
+                depth_test: Comparison::Less,
+                depth_write: true,
+                ..PipelineParams::default()
+            },
         );
 
         Drawer {
@@ -50,26 +57,22 @@ impl Drawer {
         }
     }
 
-    pub fn draw<'a>(&self, ctx: &mut Context, imgs: impl Iterator<Item = (&'a Image, Pos, Scale)>) {
+    pub fn draw<'a>(&self, ctx: &mut Context, imgs: impl Iterator<Item = (&'a Image, Pos)>) {
         ctx.apply_pipeline(&self.pipeline);
-        for (img, pos, scale) in imgs {
+        for (img, pos) in imgs {
             ctx.apply_bindings(&Bindings {
                 vertex_buffers: self.vertex_buffers.clone(),
                 index_buffer: self.index_buffer,
                 images: vec![img.tx],
             });
-            let z = 0.0;
-            let w = if scale.big { 1.1 } else { 1.0 };
-            ctx.apply_uniforms(&shader::Uniforms {
-                offset: (pos.x, pos.y, z, w),
-            });
+            ctx.apply_uniforms(&shader::Uniforms { offset: pos });
             ctx.draw(0, 6, 1);
         }
         ctx.end_render_pass();
     }
 
-    pub fn draw_single(&self, ctx: &mut Context, img: &Image, pos: Pos, scale: Scale) {
-        self.draw(ctx, Some((img, pos, scale)).into_iter())
+    pub fn draw_single(&self, ctx: &mut Context, img: &Image, pos: Pos) {
+        self.draw(ctx, Some((img, pos)).into_iter())
     }
 }
 
@@ -115,13 +118,13 @@ impl Drop for Image {
     }
 }
 
+#[repr(C)]
+#[derive(Default, Debug, Clone)]
 pub struct Pos {
     pub x: f32,
     pub y: f32,
-}
-
-pub struct Scale {
-    pub big: bool,
+    pub z: f32,
+    pub w: f32,
 }
 
 #[repr(C)]
@@ -170,7 +173,7 @@ mod shader {
 
     #[repr(C)]
     pub struct Uniforms {
-        pub offset: (f32, f32, f32, f32),
+        pub offset: super::Pos,
     }
 }
 
