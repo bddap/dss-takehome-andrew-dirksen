@@ -1,4 +1,5 @@
 use core::fmt::Debug;
+use miniquad::graphics::FilterMode;
 use miniquad::Bindings;
 use miniquad::Buffer;
 use miniquad::BufferLayout;
@@ -9,6 +10,9 @@ use miniquad::Pipeline;
 use miniquad::PipelineParams;
 use miniquad::Shader;
 use miniquad::Texture;
+use miniquad::TextureFormat;
+use miniquad::TextureParams;
+use miniquad::TextureWrap;
 use miniquad::VertexAttribute;
 use miniquad::VertexFormat;
 
@@ -33,7 +37,7 @@ impl Drawer {
         let indices: [u16; 6] = [0, 1, 2, 0, 2, 3];
         let index_buffer = Buffer::immutable(ctx, BufferType::IndexBuffer, &indices);
 
-        let shader = Shader::new(ctx, shader::VERTEX, shader::FRAGMENT, shader::META);
+        let shader = Shader::new(ctx, shader::VERTEX, shader::FRAGMENT, shader::meta()).unwrap();
 
         let pipeline = Pipeline::with_params(
             ctx,
@@ -70,10 +74,6 @@ impl Drawer {
         }
         ctx.end_render_pass();
     }
-
-    pub fn draw_single(&self, ctx: &mut Context, img: &Image, pos: Pos) {
-        self.draw(ctx, Some((img, pos)).into_iter())
-    }
 }
 
 pub struct Image {
@@ -81,9 +81,9 @@ pub struct Image {
 }
 
 impl Image {
-    pub fn from_rgba8(ctx: &mut Context, width: u16, height: u16, bytes: &[u8]) -> Self {
+    pub fn blank(ctx: &mut Context) -> Self {
         Self {
-            tx: Texture::from_rgba8(ctx, width, height, &bytes),
+            tx: texture_from_rgb8(ctx, 1, 1, &[0x55, 0x55, 0x55]),
         }
     }
 
@@ -97,19 +97,24 @@ impl Image {
         if metadata.pixel_format != PixelFormat::RGB24 {
             return Err("unsupported image format".to_string());
         }
-
-        let mut rgba_px: Vec<u8> = Vec::with_capacity(pixels.len() / 3 * 4);
-        for chunk in pixels.chunks(3) {
-            rgba_px.extend(chunk);
-            rgba_px.push(0); // add the alpha channel
-        }
-        Ok(Self::from_rgba8(
-            ctx,
-            metadata.width,
-            metadata.height,
-            &rgba_px,
-        ))
+        Ok(Self {
+            tx: texture_from_rgb8(ctx, metadata.width, metadata.height, &pixels),
+        })
     }
+}
+
+fn texture_from_rgb8(ctx: &mut Context, width: u16, height: u16, bytes: &[u8]) -> Texture {
+    Texture::from_data_and_format(
+        ctx,
+        bytes,
+        TextureParams {
+            width: width as u32,
+            height: height as u32,
+            format: TextureFormat::RGB8,
+            wrap: TextureWrap::Repeat,
+            filter: FilterMode::Linear,
+        },
+    )
 }
 
 impl Drop for Image {
@@ -124,7 +129,17 @@ pub struct Pos {
     pub x: f32,
     pub y: f32,
     pub z: f32,
-    pub w: f32,
+}
+
+impl core::ops::Sub<Self> for Pos {
+    type Output = Self;
+    fn sub(self, other: Self) -> Self {
+        Self {
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
+        }
+    }
 }
 
 #[repr(C)]
@@ -146,12 +161,12 @@ mod shader {
     attribute vec2 pos;
     attribute vec2 uv;
 
-    uniform vec4 offset;
+    uniform vec3 offset;
 
     varying lowp vec2 texcoord;
 
     void main() {
-        gl_Position = vec4(pos, 0, 0) + offset;
+        gl_Position = vec4(vec3(pos, 0) + offset, 1);
         texcoord = uv;
     }"#;
 
@@ -164,12 +179,14 @@ mod shader {
         gl_FragColor = texture2D(tex, texcoord);
     }"#;
 
-    pub const META: ShaderMeta = ShaderMeta {
-        images: &["tex"],
-        uniforms: UniformBlockLayout {
-            uniforms: &[("offset", UniformType::Float4)],
-        },
-    };
+    pub fn meta() -> ShaderMeta {
+        ShaderMeta {
+            images: vec!["tex".to_string()],
+            uniforms: UniformBlockLayout {
+                uniforms: vec![UniformDesc::new("offset", UniformType::Float3)],
+            },
+        }
+    }
 
     #[repr(C)]
     pub struct Uniforms {

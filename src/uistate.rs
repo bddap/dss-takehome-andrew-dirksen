@@ -21,7 +21,7 @@ struct Pick {
 impl Pick {
     fn blank(ctx: &mut Context) -> Self {
         Self {
-            img: Image::from_rgba8(ctx, 1, 1, &[0x55, 0x55, 0x55, 0]),
+            img: Image::blank(ctx),
             pos: Pos::default(),
         }
     }
@@ -54,7 +54,6 @@ impl UiState {
                 x: 0.0,
                 y: 0.0,
                 z: -1.0,
-                w: 1.0,
             }
         } else if index.0 == selected.0 {
             let d = index.1 as f64 / 10.3579 + t / 4.0;
@@ -62,14 +61,12 @@ impl UiState {
                 x: (d.sin() / 2.0) as f32,
                 y: ((d * 0.9).cos() / 2.0) as f32,
                 z: index.1 as f32 * -0.0001,
-                w: 1.0,
             }
         } else {
             Pos {
                 x: -0.8 - index.1 as f32 / 4.0,
                 y: 1.0 - index.0 as f32 / 3.0,
-                z: -1.0,
-                w: 1.0,
+                z: index.1 as f32 * 0.0001 - 1.0,
             }
         }
     }
@@ -138,24 +135,4 @@ fn to_pick(ctx: &mut Context, image: &crate::api_types::Image) -> Result<Pick, S
         img,
         pos: Pos::default(),
     })
-}
-
-/// transforms a number x from range (inmin, inmax) to range (outmin, outmax).
-fn map(x: f64, inmin: f64, inmax: f64, outmin: f64, outmax: f64) -> f64 {
-    (x - inmin) / (inmax - inmin) * (outmax - outmin) + outmin
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn tmap() {
-        assert_eq!(map(1.0, 0.0, 1.0, 0.0, 1.0), 1.0);
-        assert_eq!(map(0.0, 0.0, 1.0, 0.0, 1.0), 0.0);
-        assert_eq!(map(0.5, 0.0, 1.0, 0.0, 1.0), 0.5);
-        assert_eq!(map(1.0, 0.0, 2.0, 0.0, 1.0), 0.5);
-        assert_eq!(map(0.0, -1.0, 1.0, 0.0, 1.0), 0.5);
-        assert_eq!(map(0.0, -1.0, 1.0, -1.0, 0.0), -0.5);
-    }
 }
