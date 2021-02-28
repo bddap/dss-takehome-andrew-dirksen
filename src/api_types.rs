@@ -255,35 +255,7 @@ pub enum Item {
         video_art: Value,
     },
     #[serde(rename_all = "camelCase")]
-    DmcVideo {
-        call_to_action: Option<CallToAction>,
-        content_id: Uuid,
-        content_type: Value,
-        current_availability: Value,
-        encoded_series_id: Value,
-        episode_number: Value,
-        episode_sequence_number: Value,
-        episode_series_sequence_number: Value,
-        family: Value,
-        groups: Value,
-        image: Image,
-        internal_title: Value,
-        media_metadata: Value,
-        media_rights: Option<Value>,
-        original_language: Value,
-        program_id: Uuid,
-        program_type: Value,
-        ratings: Value,
-        releases: Value,
-        season_id: Value,
-        season_sequence_number: Value,
-        series_id: Value,
-        tags: Value,
-        target_language: Option<Value>,
-        text: Text,
-        video_art: Value,
-        video_id: Value,
-    },
+    DmcVideo(Box<DmcVideo>), // large variant is heap allocated
     #[serde(rename_all = "camelCase")]
     StandardCollection {
         call_to_action: Option<CallToAction>,
@@ -298,11 +270,42 @@ pub enum Item {
 impl Item {
     pub fn image(&self) -> &Image {
         match &self {
-            Self::DmcSeries { image, .. }
-            | Self::DmcVideo { image, .. }
-            | Self::StandardCollection { image, .. } => image,
+            Self::DmcSeries { image, .. } | Self::StandardCollection { image, .. } => image,
+            Self::DmcVideo(dmc) => &dmc.image,
         }
     }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DmcVideo {
+    call_to_action: Option<CallToAction>,
+    content_id: Uuid,
+    content_type: Value,
+    current_availability: Value,
+    encoded_series_id: Value,
+    episode_number: Value,
+    episode_sequence_number: Value,
+    episode_series_sequence_number: Value,
+    family: Value,
+    groups: Value,
+    image: Image,
+    internal_title: Value,
+    media_metadata: Value,
+    media_rights: Option<Value>,
+    original_language: Value,
+    program_id: Uuid,
+    program_type: Value,
+    ratings: Value,
+    releases: Value,
+    season_id: Value,
+    season_sequence_number: Value,
+    series_id: Value,
+    tags: Value,
+    target_language: Option<Value>,
+    text: Text,
+    video_art: Value,
+    video_id: Value,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -316,30 +319,6 @@ pub struct Image {
     pub title_treatment_layer: Option<ImageAspectMap>,
     pub logo: Option<ImageAspectMap>,
     pub logo_layer: Option<ImageAspectMap>,
-}
-
-impl Image {
-    fn all_concrete(&self) -> impl Iterator<Item = &ImageConcrete> {
-        self.hero_collection
-            .all_concrete()
-            .chain(self.tile.all_concrete())
-            .chain(
-                self.background
-                    .iter()
-                    .chain(self.background_details.iter())
-                    .chain(self.hero_tile.iter())
-                    .chain(self.title_treatment.iter())
-                    .chain(self.title_treatment_layer.iter())
-                    .chain(self.background.iter())
-                    .chain(self.background_details.iter())
-                    .chain(self.hero_tile.iter())
-                    .chain(self.title_treatment.iter())
-                    .chain(self.title_treatment_layer.iter())
-                    .chain(self.logo.iter())
-                    .chain(self.logo_layer.iter())
-                    .flat_map(ImageAspectMap::all_concrete),
-            )
-    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]

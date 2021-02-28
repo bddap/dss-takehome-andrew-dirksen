@@ -28,15 +28,17 @@ impl Pick {
 impl UiState {
     pub fn draw(&self, ctx: &mut Context, imgd: &Drawer) {
         let t = miniquad::date::now();
-        let amp = (t / 100.0).sin();
         for (i, pick) in self.rows.iter().flat_map(|r| &r.1).enumerate() {
-            let d = i as f64 / 20.2342 + t;
+            let d = i as f64 / 10.3579 + t / 4.0;
             let center = Pos {
                 x: (d.sin() / 2.0) as f32,
                 y: ((d * 0.9).cos() / 2.0) as f32,
             };
             // draw pick at center
             imgd.draw_single(ctx, &pick.img, center, Scale { big: true });
+        }
+        if let Some(pick) = self.get_selected() {
+            imgd.draw_single(ctx, &pick.img, Pos { x: 0.0, y: 0.0 }, Scale { big: false });
         }
     }
 

@@ -66,7 +66,7 @@ impl Drawer {
         ctx.end_render_pass();
     }
 
-    pub fn draw_single<'a>(&self, ctx: &mut Context, img: &Image, pos: Pos, scale: Scale) {
+    pub fn draw_single(&self, ctx: &mut Context, img: &Image, pos: Pos, scale: Scale) {
         self.draw(ctx, Some((img, pos, scale)).into_iter())
     }
 }
@@ -83,14 +83,14 @@ impl Image {
     }
 
     pub fn decode_jpg(ctx: &mut Context, bs: &[u8]) -> Result<Self, String> {
-        use jpeg_decoder as jpeg;
-        let mut decoder = jpeg::Decoder::new(std::io::Cursor::new(bs));
+        use jpeg_decoder::{Decoder, PixelFormat};
+        let mut decoder = Decoder::new(std::io::Cursor::new(bs));
         let pixels = decoder.decode().map_err(dbug)?;
         let metadata = decoder
             .info()
             .expect("metadata should be available after calling decode");
-        if metadata.pixel_format != jpeg::PixelFormat::RGB24 {
-            Err("unsupported image format")?;
+        if metadata.pixel_format != PixelFormat::RGB24 {
+            return Err("unsupported image format".to_string());
         }
 
         let mut rgba_px: Vec<u8> = Vec::with_capacity(pixels.len() / 3 * 4);

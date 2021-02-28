@@ -24,36 +24,6 @@ pub fn get_set(ref_id: &Uuid) -> Result<api_types::Wrapped<api_types::OuterSet>,
     get_deser(&format!("sets/{}.json", ref_id))
 }
 
-pub fn get_jpg(url: &str) -> Result<Img, String> {
-    let dat = get_url(url)?;
-    Img::decode(&dat)
-}
-
-pub struct Img {
-    pub width: u16,
-    pub height: u16,
-    pub rgb: Vec<u8>,
-}
-
-impl Img {
-    fn decode(bs: &[u8]) -> Result<Self, String> {
-        use jpeg_decoder as jpeg;
-        let mut decoder = jpeg::Decoder::new(std::io::Cursor::new(bs));
-        let pixels = decoder.decode().map_err(dbug)?;
-        let metadata = decoder
-            .info()
-            .expect("metadata should be available after calling decode");
-        if metadata.pixel_format != jpeg::PixelFormat::RGB24 {
-            Err("unsupported image format")?;
-        }
-        Ok(Self {
-            width: metadata.width,
-            height: metadata.height,
-            rgb: pixels,
-        })
-    }
-}
-
 fn get_nocache(url: &str) -> Result<Vec<u8>, String> {
     let resp = blocking::get(url).map_err(dbug)?;
     if !resp.status().is_success() {
