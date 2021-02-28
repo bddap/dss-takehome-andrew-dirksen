@@ -1,5 +1,6 @@
 // IFIHADMORETIME
 // - Replace stringly typed error
+// - Reuse textures when they are already loaded.
 
 use crate::api_types::{Item, Set};
 use crate::httpget::get_url;
@@ -65,9 +66,10 @@ impl UiState {
             Pos {
                 x: 0.2,
                 y: 0.0,
-                z: -1.0,
+                z: -1.8,
             }
         } else if index.0 == selected.0 {
+            // a item in the selected category
             let reord = (selected.1 + rowlen - index.1) % rowlen;
             let angle = map(
                 reord as f64,
@@ -79,14 +81,16 @@ impl UiState {
             Pos {
                 x: angle.cos() as f32 * 0.5 + 0.2,
                 y: angle.sin() as f32 * 0.5,
-                z: map(reord as f64, 0.0, rowlen as f64, -0.5, -0.7) as f32,
+                z: map(reord as f64, 0.0, rowlen as f64, -0.5, -0.9) as f32,
             }
         } else {
+            // An image from a category that is not selected. most of these will be off-screen and
+            // culled.
             let ceord = (selected.0 + numrows + numrows / 4 - index.0) % numrows;
             Pos {
-                x: -0.8 - index.1 as f32 / 4.0,
+                x: -0.7 - index.1 as f32 / 4.0,
                 y: ceord as f32 / 3.0 - 1.0,
-                z: map(index.1 as f64, 0.0, rowlen as f64, -0.7, -0.9) as f32,
+                z: -0.8,
             }
         }
     }

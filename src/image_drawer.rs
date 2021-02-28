@@ -194,6 +194,7 @@ mod shader {
 
     void main() {
         gl_Position = vec4(vec3(pos * -offset.z, 0) + offset, 1);
+        gl_Position.z = gl_Position.z / 50.0; // affects precision of depth testing
         texcoord = uv;
     }"#;
 
