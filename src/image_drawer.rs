@@ -1,3 +1,6 @@
+// IFIHADMORETIME
+// - Use standard numeric types like mint::Vec3 for Pos and mint::Vec2
+
 use core::fmt::Debug;
 use miniquad::graphics::FilterMode;
 use miniquad::Bindings;
@@ -131,6 +134,8 @@ pub struct Pos {
     pub z: f32,
 }
 
+impl Copy for Pos {}
+
 impl core::ops::Sub<Self> for Pos {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
@@ -139,12 +144,6 @@ impl core::ops::Sub<Self> for Pos {
             y: self.y - other.y,
             z: self.z - other.z,
         }
-    }
-}
-
-impl Pos {
-    pub fn mag(&self) -> f32 {
-        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 }
 
