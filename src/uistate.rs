@@ -1,17 +1,22 @@
 // IFIHADMORETIME
 // - Replace stringly typed error
 // - Reuse textures when they are already loaded.
+// - Display movie/tv titles, not just category titles.
 
 use crate::api_types::{Item, Set};
 use crate::httpget::get_url;
-use crate::image_drawer::{Drawer, Image, Pos};
+use crate::image_drawer::{Image, ImgDrawer, Pos};
+use crate::text_drawer::TxtDrawer;
+use alloc::rc::Rc;
 use miniquad::Context;
+use miniquad_text_rusttype::FontTexture;
+use miniquad_text_rusttype::TextDisplay;
 
 const IMAGE_TARGET_ASPECT: f64 = 1.8;
 
 pub struct UiState {
     selected: (usize, usize),
-    rows: Vec<(String, Vec<Pick>)>,
+    rows: Vec<(TextDisplay<Rc<FontTexture>>, Vec<Pick>)>,
 }
 
 struct Pick {
@@ -45,7 +50,7 @@ impl UiState {
         }
     }
 
-    pub fn draw(&self, ctx: &mut Context, imgd: &Drawer) {
+    pub fn draw(&self, ctx: &mut Context, imgd: &ImgDrawer, txtd: &TxtDrawer) {
         imgd.draw(
             ctx,
             self.rows
@@ -53,6 +58,9 @@ impl UiState {
                 .flat_map(|r| &r.1)
                 .map(|pick| (&pick.img, pick.pos.clone())),
         );
+        if let Some((txt, _)) = self.rows.get(self.selected.0) {
+            txtd.draw(ctx, txt, (-0.5, 0.8), 0.08);
+        }
     }
 
     fn target_pos(
@@ -95,15 +103,15 @@ impl UiState {
         }
     }
 
-    pub fn from_interwebs(ctx: &mut Context) -> Result<Self, String> {
+    pub fn from_interwebs(ctx: &mut Context, td: &TxtDrawer) -> Result<Self, String> {
         use crate::api_types::*;
         let home: Home = crate::httpget::home()?.data;
         let sc: &StandardCollection = home.as_sc();
         let containers: &[Container] = &sc.containers;
         let containers = containers.iter().map(Container::as_shelf_container);
         let sets = containers.map(|c| &c.set);
-        let rows: Vec<(String, Vec<Pick>)> = sets
-            .map(|set| to_row(ctx, set))
+        let rows: Vec<(_, Vec<Pick>)> = sets
+            .map(|set| to_row(ctx, td, set))
             .collect::<Result<_, String>>()?;
         Ok(Self {
             rows,
@@ -129,8 +137,12 @@ fn shift(current: usize, shift: isize, bound: usize) -> usize {
     ret as usize
 }
 
-fn to_row(ctx: &mut Context, set: &crate::api_types::Set) -> Result<(String, Vec<Pick>), String> {
-    let title = format!("{:?}", set.text());
+fn to_row(
+    ctx: &mut Context,
+    td: &TxtDrawer,
+    set: &crate::api_types::Set,
+) -> Result<(TextDisplay<Rc<FontTexture>>, Vec<Pick>), String> {
+    let title = td.create_text_display(ctx, &set.title());
     let picks = picks(ctx, &deref(set)?.items().unwrap())?;
     Ok((title, picks))
 }

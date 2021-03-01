@@ -1,5 +1,6 @@
 // IFIHADMORETIME
 // - Use standard numeric types like mint::Vec3 for Pos and mint::Vec2
+// - Organize shaders
 
 use core::fmt::Debug;
 use miniquad::graphics::FilterMode;
@@ -19,13 +20,13 @@ use miniquad::TextureWrap;
 use miniquad::VertexAttribute;
 use miniquad::VertexFormat;
 
-pub struct Drawer {
+pub struct ImgDrawer {
     pipeline: Pipeline,
     vertex_buffers: Vec<Buffer>,
     index_buffer: Buffer,
 }
 
-impl Drawer {
+impl ImgDrawer {
     pub fn new(ctx: &mut Context) -> Self {
         let s = 0.15;
         #[rustfmt::skip]
@@ -57,7 +58,7 @@ impl Drawer {
             },
         );
 
-        Drawer {
+        ImgDrawer {
             pipeline,
             vertex_buffers: vec![vertex_buffer],
             index_buffer,

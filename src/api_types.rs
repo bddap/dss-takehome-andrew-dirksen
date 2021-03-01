@@ -160,7 +160,11 @@ pub struct SetRef {
 }
 
 impl Set {
-    pub fn text(&self) -> &Text {
+    pub fn title(&self) -> &str {
+        self.text().title.full.as_str()
+    }
+
+    fn text(&self) -> &Text {
         match &self {
             Self::CuratedSet(CuratedSet { text, .. })
             | Self::TrendingSet(TrendingSet { text, .. })
@@ -213,6 +217,16 @@ pub enum TextInner {
     Set(TextSet),
 }
 
+impl TextInner {
+    fn as_str(&self) -> &str {
+        match self {
+            Self::Series(ts) | Self::Program(ts) | Self::Collection(ts) | Self::Set(ts) => {
+                &ts.default.content
+            }
+        }
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct TextSet {
@@ -222,7 +236,7 @@ pub struct TextSet {
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TextDefault {
-    content: Value,
+    content: String,
     language: Language,
     source_entity: String,
 }

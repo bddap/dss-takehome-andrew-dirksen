@@ -3,17 +3,20 @@ extern crate alloc;
 mod api_types;
 mod httpget;
 mod image_drawer;
+mod text_drawer;
 mod uistate;
 
 use crate::uistate::UiState;
-use image_drawer::Drawer;
+use image_drawer::ImgDrawer;
 use miniquad::conf::Conf;
 use miniquad::conf::{Cache, Loading};
 use miniquad::*;
+use text_drawer::TxtDrawer;
 
 struct Stage {
     uistate: UiState,
-    imgd: Drawer,
+    imgd: ImgDrawer,
+    txtd: TxtDrawer,
 }
 
 impl EventHandler for Stage {
@@ -23,7 +26,7 @@ impl EventHandler for Stage {
 
     fn draw(&mut self, ctx: &mut Context) {
         ctx.begin_default_pass(Default::default());
-        self.uistate.draw(ctx, &self.imgd);
+        self.uistate.draw(ctx, &self.imgd, &self.txtd);
         ctx.commit_frame();
     }
 
@@ -33,7 +36,7 @@ impl EventHandler for Stage {
             KeyCode::Left => self.uistate.select_relative((0, -1)),
             KeyCode::Right => self.uistate.select_relative((0, 1)),
             KeyCode::Up => self.uistate.select_relative((-1, 0)),
-            KeyCode::Down => self.uistate.select_relative((1, 0)), 
+            KeyCode::Down => self.uistate.select_relative((1, 0)),
             _ => {}
         }
     }
@@ -55,10 +58,12 @@ fn window_conf() -> Conf {
 
 fn main() {
     miniquad::start(window_conf(), |mut ctx| {
-        let uistate = crate::uistate::UiState::from_interwebs(&mut ctx).unwrap();
+        let txtd = TxtDrawer::new(&mut ctx);
+        let uistate = crate::uistate::UiState::from_interwebs(&mut ctx, &txtd).unwrap();
         let stage = Stage {
             uistate,
-            imgd: Drawer::new(&mut ctx),
+            imgd: ImgDrawer::new(&mut ctx),
+            txtd,
         };
         UserData::owning(stage, ctx)
     });
