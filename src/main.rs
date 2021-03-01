@@ -32,7 +32,7 @@ impl EventHandler for Stage {
 
     fn key_down_event(&mut self, ctx: &mut Context, kc: KeyCode, _mods: KeyMods, _repeat: bool) {
         match kc {
-            KeyCode::Q => ctx.request_quit(),
+            KeyCode::Q | KeyCode::Escape => ctx.request_quit(),
             KeyCode::Left => self.uistate.select_relative((0, -1)),
             KeyCode::Right => self.uistate.select_relative((0, 1)),
             KeyCode::Up => self.uistate.select_relative((-1, 0)),
@@ -48,9 +48,9 @@ fn window_conf() -> Conf {
         cache: Cache::No,
         loading: Loading::No,
         window_title: String::from(""),
-        window_width: 1920,
-        window_height: 1080,
-        high_dpi: false,
+        window_width: 1920 / 2,
+        window_height: 1080 / 2,
+        high_dpi: true,
         fullscreen: false,
         sample_count: 1,
     }
