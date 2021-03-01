@@ -17,8 +17,9 @@ lazy_static = "1.4.0"
 bincode = "1.3.2"
 
 [dependencies.miniquad_text_rusttype]
-git = "https://github.com/bddap/miniquad_text_rusttype.git"
-rev = "12d30006be7a02323350e60c753e2fbc0a07614f"
+git = "https://github.com/not-fl3/miniquad_text_rusttype.git"
+rev = "3ee682629a980d617d1cc570e5359ce84d622d5e"
+# https://github.com/not-fl3/miniquad_text_rusttype/commit/3ee682629a980d617d1cc570e5359ce
 
 # All dependencies (but not this crate itself or any workspace member)
 # will be compiled with -Copt-level=2 . This includes build dependencies.
