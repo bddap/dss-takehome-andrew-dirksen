@@ -2,6 +2,7 @@
 // - Replace stringly typed error
 // - Reuse textures when they are already loaded.
 // - Display movie/tv titles, not just category titles.
+// - Hide movies with broken images. Report broken images.
 
 use crate::api_types::{Item, Set};
 use crate::httpget::get_url;
