@@ -8,6 +8,7 @@
 //     for thismodule
 // - fewer allocations
 // - strong types for things like ref-id
+// - dummy sample dataset with tests
 
 use crate::api_types;
 use core::fmt::Debug;
@@ -15,6 +16,19 @@ use reqwest::blocking;
 use serde::de::DeserializeOwned;
 use std::env::var;
 use uuid::Uuid;
+
+use lazy_static::lazy_static;
+
+lazy_static! {
+    static ref API_PREFIX: String = {
+        let mut prefix =
+            var("DSS_API").unwrap_or("https://cd-static.bamgrid.com/dp-117731241344/".to_string());
+        if !prefix.ends_with('/') {
+            prefix += "/";
+        }
+        prefix
+    };
+}
 
 pub fn home() -> Result<api_types::Wrapped<api_types::Home>, String> {
     get_deser("home.json")
@@ -41,10 +55,7 @@ pub fn get_url(url: &str) -> Result<Vec<u8>, String> {
 }
 
 fn get(path: &str) -> Result<Vec<u8>, String> {
-    let mut prefix = var("DSS_API").expect("missing DSS_API enviroment variable");
-    if !prefix.ends_with('/') {
-        prefix += "/";
-    }
+    let prefix: &str = &API_PREFIX;
     let url = format!("{}{}", prefix, path);
     get_url(&url)
 }
@@ -89,28 +100,6 @@ mod cache_dir {
             let ret = f();
             set(url, &ret);
             ret
-        }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    // use crate::api_types::Set;
-
-    #[test]
-    fn get_all() {
-        let home = home().unwrap();
-        for _set in home
-            .data
-            .as_sc()
-            .containers
-            .iter()
-            .map(|c| &c.as_shelf_container().set)
-            .filter_map(|_set| -> Option<()> { unimplemented!() })
-        // .flatten()
-        {
-            // dbg!(&set.image());
         }
     }
 }
