@@ -17,6 +17,9 @@ jobs:
           default: true
           override: true
 
+      - name: Install build deps
+        run: apt install libx11-dev libxi-dev libgl1-mesa-dev
+
       - name: Build
         run: cargo build --all --release
 
