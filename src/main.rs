@@ -1,3 +1,12 @@
+// IFIHADMORETIME
+// - optimize fps
+// - movie modals
+// - dynamically populate ref-sets and images
+// - bundle ImgDrawer and TxtDrawer into a single Context type.
+//   this would allow uistate to concentrate on layout instead of on which system draws which thing
+// - cleanup uistate initialization and separate it from layout logic
+// - abstract image and text loading from uistate, it shouldn't need to care about generating textures
+
 extern crate alloc;
 
 mod api_types;
